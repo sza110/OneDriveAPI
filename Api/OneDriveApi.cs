@@ -93,6 +93,26 @@ namespace KoenZomers.OneDrive.Api
 
         #endregion
 
+        #region Events
+        public class OneDriveUploadProgressChangedEventArgs : System.EventArgs
+        {
+            public long BytesSent { get; set; }
+            public long TotalBytes { get; set; }
+
+            public OneDriveUploadProgressChangedEventArgs(long bytesSent, long totalBytes)
+            {
+                BytesSent = bytesSent;
+                TotalBytes = totalBytes;
+            }
+        }
+
+        public event EventHandler<OneDriveUploadProgressChangedEventArgs> UploadProgressChanged;
+        protected virtual void OnUploadProgressChanged(OneDriveUploadProgressChangedEventArgs e)
+        {
+            UploadProgressChanged?.Invoke(this, e);
+        }
+
+        #endregion
         #region Constructors
 
         /// <summary>
@@ -1137,7 +1157,8 @@ namespace KoenZomers.OneDrive.Api
         {
             // Create a resumable upload session with OneDrive
             var uploadSessionResult = await CreateResumableUploadSession(fileName, oneDriveItem);
-
+            //amount of bytes succesfully sent
+            int totalBytesSent = 0;
             // Get an access token to perform the request to OneDrive
             var accessToken = await GetAccessToken();
 
@@ -1201,6 +1222,8 @@ namespace KoenZomers.OneDrive.Api
                                         case HttpStatusCode.Accepted:
                                             // Move the current position pointer to the end of the fragment we've just sent so we continue from there with the next upload
                                             currentPosition = endPosition;
+                                            totalBytesSent += amountOfBytesToSend;
+                                            OnUploadProgressChanged(new OneDriveUploadProgressChangedEventArgs(totalBytesSent, fileStream.Length));
                                             break;
 
                                         // All fragments have been received, the file did already exist and has been overwritten
